@@ -11,24 +11,23 @@ import javax.persistence.OneToOne;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
-
 @Entity
 public class Cab {
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	private Integer cabId;
-	
+
 	@NotNull(message = "Number Plate cannot be null")
 	@Column(unique = true)
-	@Pattern(regexp = "[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}",message = "Number Plate should be in format of MH23BC5678")
+	@Pattern(regexp = "[A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{4}", message = "Number Plate should be in format of MH23BC5678")
 	private String numberPlate;
-	
+
 	@NotNull(message = "Car type cannot be null")
 	private String carType;
-	
+
 	@NotNull(message = "Rate cannot be null")
 	private Float ratePerKms;
-	
+
 	@OneToOne(cascade = CascadeType.ALL)
 	@JoinColumn(name = "driverID")
 	private CabDriver cabDriver;
@@ -78,6 +77,5 @@ public class Cab {
 		return "Cab [cabId=" + cabId + ", numberPlate=" + numberPlate + ", carType=" + carType + ", ratePerKms="
 				+ ratePerKms + "]";
 	}
-	
-	
+
 }

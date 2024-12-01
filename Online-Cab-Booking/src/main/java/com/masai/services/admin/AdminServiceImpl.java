@@ -9,113 +9,115 @@ import org.springframework.stereotype.Service;
 
 import com.masai.entities.Admin;
 import com.masai.entities.Cab;
-import com.masai.entities.CabDriver;
 import com.masai.entities.Customer;
 import com.masai.entities.TripDetails;
 import com.masai.exceptions.UserDoesNotExist;
 import com.masai.exceptions.UserNameAlreadyExist;
 import com.masai.repository.AdminRepository;
-import com.masai.repository.CabDriverRepository;
 import com.masai.repository.CabRepository;
 import com.masai.repository.CustomerRepository;
 import com.masai.repository.TripDetailsRepository;
 
-
 @Service
-public class AdminServiceImpl implements AdminService{
+public class AdminServiceImpl implements AdminService {
 
 	@Autowired
 	private AdminRepository adminDao;
-	
+
 	@Autowired
 	private CustomerRepository customerDao;
-	
-	@Autowired
-	private CabDriverRepository cabDriverDao;
-	
-	@Autowired
-	private TripDetailsRepository tripDetailsDao;
-	
+
 	@Autowired
 	private CabRepository cabDao;
-	
-	
+
+	@Autowired
+	private TripDetailsRepository tripDetailsDao;
+
+	// Singleton instance
+	private static AdminServiceImpl instance;
+
+	// Private constructor
+	private AdminServiceImpl() {
+	}
+
+	// Public method to get the singleton instance
+	public static synchronized AdminServiceImpl getInstance() {
+		if (instance == null) {
+			instance = new AdminServiceImpl();
+		}
+		return instance;
+	}
+
+	// Helper method for admin authentication
+	private Admin authenticateAdmin(String username, String password) {
+		Admin admin = adminDao.findByUsernameAndPassword(username, password);
+		if (admin == null) {
+			throw new UserDoesNotExist("Invalid username or password");
+		}
+		return admin;
+	}
+
+	// Helper method for retrieving a Cab by ID
+	private Cab findCabById(Integer cabId) {
+		return cabDao.findById(cabId)
+				.orElseThrow(() -> new UserDoesNotExist("Cab with ID " + cabId + " does not exist"));
+	}
+
+	// Helper method for retrieving a Customer by username
+	private Customer findCustomerByUsername(String username) {
+		Customer customer = customerDao.findByUsername(username);
+		if (customer == null) {
+			throw new UserDoesNotExist("Customer does not exist");
+		}
+		return customer;
+	}
+
 	@Override
 	public ResponseEntity<Admin> insertAdmin(Admin admin) {
-		Admin adm=adminDao.findByUsername(admin.getUsername());
-		if(adm!=null) throw new UserNameAlreadyExist("Useername already Exist");
+		if (adminDao.findByUsername(admin.getUsername()) != null) {
+			throw new UserNameAlreadyExist("Username already exists");
+		}
 		adminDao.save(admin);
-		ResponseEntity<Admin> re=new ResponseEntity<>(admin, HttpStatus.ACCEPTED);
-		return re;
+		return new ResponseEntity<>(admin, HttpStatus.CREATED);
 	}
 
 	@Override
 	public ResponseEntity<Admin> updateAdmin(Admin admin, String user, String pass) {
-		Admin adm=adminDao.findByUsernameAndPassword(user, pass);
-		
-		if(adm==null) throw new UserDoesNotExist("Username or Password is wrong");
-		
-		if(admin.getUsername() != null) {
-			Admin adm_new = adminDao.findByUsername(admin.getUsername());
-			if(adm_new != null) throw new UserNameAlreadyExist("username already exist");
-			adm.setUsername(admin.getUsername());
-		}
-		if(admin.getPassword() != null) adm.setPassword(admin.getPassword());
-		if(admin.getEmail() != null) adm.setEmail(admin.getEmail());
-		if(admin.getAddress() != null) adm.setAddress(admin.getAddress());
-		if(admin.getMobile() != null) adm.setMobile(admin.getMobile());
-		
-		adminDao.save(adm);
-		ResponseEntity<Admin> re = new ResponseEntity<>(adm,HttpStatus.OK);
-		return re;
+		Admin authenticatedAdmin = authenticateAdmin(user, pass);
+		if (admin.getUsername() != null)
+			authenticatedAdmin.setUsername(admin.getUsername());
+		if (admin.getPassword() != null)
+			authenticatedAdmin.setPassword(admin.getPassword());
+		adminDao.save(authenticatedAdmin);
+		return new ResponseEntity<>(authenticatedAdmin, HttpStatus.OK);
 	}
 
 	@Override
 	public ResponseEntity<String> deleteAdmin(Admin admin) {
-		Admin adm=adminDao.findByUsernameAndPassword(admin.getUsername(), admin.getPassword());
-		if(adm==null) throw new UserDoesNotExist("Username or Password is wrong");
-		adminDao.delete(adm);
-		ResponseEntity<String> re=new ResponseEntity<>("Admin with username : "+admin.getUsername()+" deleted",HttpStatus.OK);
-		return re;
+		Admin authenticatedAdmin = authenticateAdmin(admin.getUsername(), admin.getPassword());
+		adminDao.delete(authenticatedAdmin);
+		return new ResponseEntity<>("Admin deleted successfully", HttpStatus.OK);
 	}
 
 	@Override
 	public ResponseEntity<List<TripDetails>> getAllTrips(Admin admin) {
-//		System.out.println(admin.getUsername());
-//		System.out.println(admin.getPassword());
-		Admin adm=adminDao.findByUsernameAndPassword(admin.getUsername(), admin.getPassword());
-		
-		if(adm==null) throw new UserDoesNotExist("Username or Password is wrong");
-		
-		List<TripDetails> allTrips=tripDetailsDao.findAll();
-		ResponseEntity<List<TripDetails>> re=new ResponseEntity<>(allTrips,HttpStatus.OK);
-		return re;
-	}
-
-	@Override
-	public ResponseEntity<List<TripDetails>> getAllTripsByCab(Admin admin, Integer cabId) {
-		Admin adm=adminDao.findByUsernameAndPassword(admin.getUsername(), admin.getPassword());
-		if(adm==null) throw new UserDoesNotExist("Username or Password is wrong");
-		
-		Cab cab=cabDao.findById(cabId).get();
-		if(cab==null) throw new UserDoesNotExist("Cab Does not Exist");
-		List<TripDetails> allTripsByCab=cab.getCabDriver().getTripDetailsList();
-		ResponseEntity<List<TripDetails>> re=new ResponseEntity<>(allTripsByCab, HttpStatus.OK);
-		return re;
+		authenticateAdmin(admin.getUsername(), admin.getPassword());
+		List<TripDetails> allTrips = tripDetailsDao.findAll();
+		return new ResponseEntity<>(allTrips, HttpStatus.OK);
 	}
 
 	@Override
 	public ResponseEntity<List<TripDetails>> getAllTripsByCustomer(Admin admin, String username) {
-		Admin adm=adminDao.findByUsernameAndPassword(admin.getUsername(), admin.getPassword());
-		if(adm==null) throw new UserDoesNotExist("Username or Password is wrong");
-		
-		Customer cust=customerDao.findByUsername(username);
-		if(cust==null) throw new UserDoesNotExist("Customer does not Exist");
-		List<TripDetails> allTripsByCustomer=cust.getTripDetailsList();
-		ResponseEntity<List<TripDetails>> re=new ResponseEntity<>(allTripsByCustomer,HttpStatus.OK);
-		return re;
+		authenticateAdmin(admin.getUsername(), admin.getPassword());
+		Customer customer = findCustomerByUsername(username);
+		return new ResponseEntity<>(customer.getTripDetailsList(), HttpStatus.OK);
 	}
-	
-	
 
+	@Override
+	public ResponseEntity<List<TripDetails>> getAllTripsByCab(Admin admin, Integer cabId) {
+		authenticateAdmin(admin.getUsername(), admin.getPassword());
+		Cab cab = findCabById(cabId);
+		List<TripDetails> tripsByCab = cab.getCabDriver().getTripDetailsList();
+		return new ResponseEntity<>(tripsByCab, HttpStatus.OK);
+	}
 }
