@@ -10,31 +10,84 @@ import org.springframework.stereotype.Service;
 import com.masai.entities.Cab;
 import com.masai.entities.CabDriver;
 import com.masai.entities.CabDriverCabDTO;
-import com.masai.entities.TripDetails;
-import com.masai.exceptions.TripInProgress;
-import com.masai.exceptions.UserDoesNotExist;
-import com.masai.exceptions.UserNameAlreadyExist;
 import com.masai.repository.CabDriverRepository;
 import com.masai.repository.CabRepository;
-
+import com.masai.validation.CabDriverValidator;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
 
 @Service
 public class CabDriverServiceImpl implements CabDriverService {
 
 	@Autowired
 	private CabDriverRepository cabDriverDao;
-	
+
 	@Autowired
 	private CabRepository cabDao;
-	
+
+	@Autowired
+	private CabDriverValidator validator; // Validation class
+
 	@Override
 	public ResponseEntity<CabDriver> insertCabDriver(CabDriverCabDTO cabdto) {
-		
+		validator.validateNewCabDriver(cabdto); // Validation
+
+		// Create entities
+		Cab cab = createCabFromDTO(cabdto);
+		CabDriver cabDriver = createCabDriverFromDTO(cabdto, cab);
+
+		// Save entities
+		cab.setCabDriver(cabDriver);
+		cabDriverDao.save(cabDriver);
+
+		return new ResponseEntity<>(cabDriver, HttpStatus.CREATED);
+	}
+
+	@Override
+	public ResponseEntity<CabDriver> updateCabDriver(CabDriverCabDTO cabdtupdate, String user, String pass) {
+		CabDriver existingDriver = validator.validateCredentials(user, pass); // Validate user
+
+		// Update CabDriver and Cab details
+		updateCabDriverDetails(existingDriver, cabdtupdate);
+		cabDriverDao.save(existingDriver);
+
+		return new ResponseEntity<>(existingDriver, HttpStatus.OK);
+	}
+
+	@Override
+	public ResponseEntity<String> deleteCabDriver(CabDriver cabDriver) {
+		CabDriver existingDriver = validator.validateCredentials(cabDriver.getUsername(), cabDriver.getPassword()); // Validate user
+		cabDriverDao.delete(existingDriver);
+
+		return new ResponseEntity<>("Driver with username: " + cabDriver.getUsername() + " deleted", HttpStatus.OK);
+	}
+
+	@Override
+	public ResponseEntity<String> updateStatus(CabDriver cabDriver) {
+		CabDriver existingDriver = validator.validateCredentials(cabDriver.getUsername(), cabDriver.getPassword()); // Validate user
+
+		if (validator.isTripInProgress(existingDriver)) {
+			throw new IllegalStateException("Trip is already in progress");
+		}
+
+		existingDriver.setAvailablity(!existingDriver.getAvailablity()); // Toggle availability
+		cabDriverDao.save(existingDriver);
+
+		return new ResponseEntity<>("Status Updated Successfully", HttpStatus.OK);
+	}
+
+	// Helper methods
+	private Cab createCabFromDTO(CabDriverCabDTO cabdto) {
 		Cab cab = new Cab();
 		cab.setCarType(cabdto.getCarType());
 		cab.setNumberPlate(cabdto.getNumberPlate());
 		cab.setRatePerKms(cabdto.getRatePerKms());
-		
+		return cab;
+	}
+
+	private CabDriver createCabDriverFromDTO(CabDriverCabDTO cabdto, Cab cab) {
 		CabDriver cabDriver = new CabDriver();
 		cabDriver.setAddress(cabdto.getAddress());
 		cabDriver.setUsername(cabdto.getUsername());
@@ -43,90 +96,19 @@ public class CabDriverServiceImpl implements CabDriverService {
 		cabDriver.setEmail(cabdto.getEmail());
 		cabDriver.setCab(cab);
 		cabDriver.setLicenseNumber(cabdto.getLicenseNumber());
-		
-		System.out.println(cabDriver);
-		cab.setCabDriver(cabDriver);
-		
-		CabDriver cd = cabDriverDao.findByUsername(cabdto.getUsername());
-		CabDriver cd2 = cabDriverDao.findByLicenseNumber(cabdto.getLicenseNumber());
-		if(cd != null) throw new UserNameAlreadyExist("Username Already Exist");
-		if(cd2 != null) throw new UserNameAlreadyExist("License number already registered");
-		
-		Cab cb = cabDao.findByNumberPlate(cabdto.getNumberPlate());
-		if(cb != null) throw new UserNameAlreadyExist("Number Plate already registered");
-		cabDriverDao.save(cabDriver);
-		return new ResponseEntity<>(cabDriver,HttpStatus.ACCEPTED);
+		return cabDriver;
 	}
 
-	@Override
-	public ResponseEntity<CabDriver> updateCabDriver(CabDriverCabDTO cabdto,String user,String pass) {
-		
-//		String username = cabdto.getUsername();
-		CabDriver cd = cabDriverDao.findByUsernameAndPassword(user,pass);
-		
-		if(cd == null) throw new UserDoesNotExist("Username or Password is wrong");
-		
-		Cab cb = cd.getCab();
-		System.out.println(cb);
-		System.out.println(cabdto);
-		
-		if(cabdto.getUsername() != null) {
-			CabDriver cd2 = cabDriverDao.findByUsername(cabdto.getUsername());
-			if(cd2 != null) throw new UserNameAlreadyExist("username already exist");
-			cd.setUsername(cabdto.getUsername());
-		}
-		if(cabdto.getPassword() != null) cd.setPassword(cabdto.getPassword());
-		if(cabdto.getMobile() != null) cd.setMobile(cabdto.getMobile());
-		if(cabdto.getAddress() != null) cd.setAddress(cabdto.getAddress());
-		if(cabdto.getLicenseNumber() != null) {
-			CabDriver cd2 = cabDriverDao.findByLicenseNumber(cabdto.getLicenseNumber());
-			if(cd2 != null) throw new UserNameAlreadyExist("License number already exist");
-		}
-		
-		if(cabdto.getEmail() != null) cd.setEmail(cabdto.getEmail());
-//		if(cabdto.get)
-		
-		if(cabdto.getCarType() != null) cb.setCarType(cabdto.getCarType());
-		if(cabdto.getNumberPlate() != null) {
-			Cab cb2 = cabDao.findByNumberPlate(cabdto.getNumberPlate());
-			if(cb2 != null) throw new UserNameAlreadyExist("Number Plate already registered");
-			cb.setNumberPlate(cabdto.getNumberPlate());;
-		}
-		if(cabdto.getRatePerKms() != null) cb.setRatePerKms(cabdto.getRatePerKms());
-		
-		cabDriverDao.save(cd);
-		
-		
-		return new ResponseEntity<CabDriver>(cd,HttpStatus.OK); 
-		
-	}
+	private void updateCabDriverDetails(CabDriver cabDriver, CabDriverCabDTO cabdto) {
+		if (cabdto.getUsername() != null) cabDriver.setUsername(cabdto.getUsername());
+		if (cabdto.getPassword() != null) cabDriver.setPassword(cabdto.getPassword());
+		if (cabdto.getMobile() != null) cabDriver.setMobile(cabdto.getMobile());
+		if (cabdto.getAddress() != null) cabDriver.setAddress(cabdto.getAddress());
+		if (cabdto.getEmail() != null) cabDriver.setEmail(cabdto.getEmail());
 
-	@Override
-	public ResponseEntity<String> deleteCabDriver(CabDriver cabDriver) {
-		// TODO Auto-generated method stub
-		CabDriver cd = cabDriverDao.findByUsernameAndPassword(cabDriver.getUsername(), cabDriver.getPassword());
-		if(cd == null) throw new UserDoesNotExist("username or password is wrong");
-		cabDriverDao.delete(cd);
-		return new ResponseEntity<>("driver with username : " + cabDriver.getUsername() + " deleted" ,HttpStatus.OK);
+		Cab cab = cabDriver.getCab();
+		if (cabdto.getCarType() != null) cab.setCarType(cabdto.getCarType());
+		if (cabdto.getNumberPlate() != null) cab.setNumberPlate(cabdto.getNumberPlate());
+		if (cabdto.getRatePerKms() != null) cab.setRatePerKms(cabdto.getRatePerKms());
 	}
-
-	@Override
-	public ResponseEntity<String> updateStatus(CabDriver cabDriver) {
-		
-		CabDriver cd = cabDriverDao.findByUsernameAndPassword(cabDriver.getUsername(), cabDriver.getPassword());
-		if(cd == null) throw new UserDoesNotExist("username or password is wrong");
-		List<TripDetails> tripList = cd.getTripDetailsList();
-		
-		if(tripList.size() > 0) {
-			TripDetails lasTripDetails = tripList.get(tripList.size()-1);
-			if(lasTripDetails.getStatus() == false) throw new TripInProgress("Trip is already in progress");
-			
-		}
-		cd.setAvailablity(!cd.getAvailablity());
-		cabDriverDao.save(cd);
-		return new ResponseEntity<>("Status Updated Successfully",HttpStatus.ACCEPTED);
-	}
-	
-	
-	
 }
