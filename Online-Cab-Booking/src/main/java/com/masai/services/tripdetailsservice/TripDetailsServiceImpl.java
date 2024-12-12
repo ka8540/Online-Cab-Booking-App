@@ -96,6 +96,9 @@ public class TripDetailsServiceImpl implements TripDetailsService {
         float distance = calculateRandomDistance();
         TripDetails tripDetails = createTripPrototype(customer, cabDriver, tripDto, distance);
 
+        // Choose pricing strategy based on some condition (e.g., peak hours, discount)
+        DiscountedPricing pricingStrategy;
+
         // Update associations
         cabDriver.setAvailablity(false);
         cabDriver.getTripDetailsList().add(tripDetails);
@@ -143,7 +146,8 @@ public class TripDetailsServiceImpl implements TripDetailsService {
                 .findFirst()
                 .orElseThrow(() -> new TripInProgress("No active trip found"));
 
-        float totalFare = ongoingTrip.getDistance() * cabDriver.getCab().getRatePerKms();
+        // Use the pricing strategy to calculate the fare
+        float totalFare = ongoingTrip.getTotalFare(); // The fare is now determined by the strategy
         ongoingTrip.setTotalFare(totalFare);
         ongoingTrip.setStatus(true);
         cabDriver.setAvailablity(true);
@@ -167,6 +171,7 @@ public class TripDetailsServiceImpl implements TripDetailsService {
             throw new TripInProgress("Trip not completed yet");
         }
 
+        // Generate Bill based on the trip details
         BillDetails billDetails = new BillDetails();
         billDetails.setDistance(tripDetails.getDistance());
         billDetails.setRatePerKms(tripDetails.getCabDriver().getCab().getRatePerKms());
