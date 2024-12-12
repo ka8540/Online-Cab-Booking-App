@@ -1,5 +1,4 @@
-package com.masai.services.cabdriver;
-
+//com.masai.services.cabdriver;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,15 +6,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.masai.entities.Admin;
 import com.masai.entities.Cab;
 import com.masai.entities.CabDriver;
 import com.masai.entities.CabDriverCabDTO;
+import com.masai.entities.Customer;
 import com.masai.entities.TripDetails;
 import com.masai.exceptions.TripInProgress;
 import com.masai.exceptions.UserDoesNotExist;
 import com.masai.exceptions.UserNameAlreadyExist;
+import com.masai.repository.AdminRepository;
 import com.masai.repository.CabDriverRepository;
 import com.masai.repository.CabRepository;
+import com.masai.repository.CustomerRepository;
+import com.masai.repository.TripDetailsRepository;
 
 @Service
 public class CabDriverServiceImpl implements CabDriverService {
@@ -88,7 +92,8 @@ public class CabDriverServiceImpl implements CabDriverService {
         validateNumberPlateExists(cabdto.getNumberPlate());
 
         // Create new Cab and CabDriver
-        Cab cab = new Cab();
+        String fuelType = cabdto.getCarType();
+        Cab cab = new Cab(fuelType); // Create a Cab with a FuelType
         cab.setCarType(cabdto.getCarType());
         cab.setNumberPlate(cabdto.getNumberPlate());
         cab.setRatePerKms(cabdto.getRatePerKms());
@@ -115,6 +120,10 @@ public class CabDriverServiceImpl implements CabDriverService {
 
         updateCabDriverFields(cabDriver, cabdto); // Update driver fields
         updateCabFields(cab, cabdto); // Update cab fields
+
+        // Apply Bridge pattern to the Cab's fuel type
+        String fuelType = cabdto.getCarType();
+        cab.setCarType(fuelType); // Changing the fuel type dynamically
 
         cabDriverDao.save(cabDriver);
         return new ResponseEntity<>(cabDriver, HttpStatus.OK);
@@ -144,4 +153,5 @@ public class CabDriverServiceImpl implements CabDriverService {
         cabDriverDao.save(existingDriver);
         return new ResponseEntity<>("Status Updated Successfully", HttpStatus.ACCEPTED);
     }
+
 }
