@@ -18,11 +18,19 @@ import com.masai.repository.CustomerRepository;
 @Service
 public class CustomerServiceImpl implements CustomerService {
 
+    private final CustomerService decoratedService;
+
     @Autowired
     private CustomerRepository customerDao;
     
     @Autowired
     private CabDriverRepository cabDriverDao;
+
+    // Constructor Injection to accept the decorated service (Proxy/Decorator)
+    @Autowired
+    public CustomerServiceImpl(CustomerService decoratedService) {
+        this.decoratedService = decoratedService;
+    }
 
     // Structural Helper Method: Check if username already exists
     private void validateUsernameExists(String username) {
@@ -53,8 +61,18 @@ public class CustomerServiceImpl implements CustomerService {
         if (newCustomerData.getMobile() != null) existingCustomer.setMobile(newCustomerData.getMobile());
     }
 
+    // Proxy Pattern: Authentication before performing the actual operations
+    private boolean checkAuthentication(String username, String password) {
+        // Here, you can add a real authentication mechanism if necessary
+        return "admin".equals(username);  // Mock check: Only "admin" can perform actions
+    }
+
     @Override
     public ResponseEntity<Customer> insertCustomer(Customer customer) {
+        if (!checkAuthentication(customer.getUsername(), customer.getPassword())) {
+            throw new UserDoesNotExist("Unauthorized access to insert customer");
+        }
+
         validateUsernameExists(customer.getUsername());  // Validate username uniqueness
         customerDao.save(customer);  // Save new customer
         return new ResponseEntity<>(customer, HttpStatus.CREATED);
@@ -62,6 +80,10 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public ResponseEntity<Customer> updateCustomer(Customer customer, String user, String pass) {
+        if (!checkAuthentication(user, pass)) {
+            throw new UserDoesNotExist("Unauthorized access to update customer");
+        }
+
         Customer existingCustomer = authenticateCustomer(user, pass);  // Authenticate user
         
         // Update fields of the existing customer
@@ -73,6 +95,10 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public ResponseEntity<String> deleteCustomer(Customer customer) {
+        if (!checkAuthentication(customer.getUsername(), customer.getPassword())) {
+            throw new UserDoesNotExist("Unauthorized access to delete customer");
+        }
+
         Customer existingCustomer = authenticateCustomer(customer.getUsername(), customer.getPassword());  // Authenticate user
         
         // Handle cancellation of trip if there are active trips

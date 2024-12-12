@@ -11,6 +11,8 @@ import javax.persistence.OneToOne;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
+import com.masai.services.cabdriver.FuelType;
+
 
 @Entity
 public class Cab {
@@ -33,7 +35,7 @@ public class Cab {
 	@JoinColumn(name = "driverID")
 	private CabDriver cabDriver;
 
-	public Integer getCabId() {
+    public Integer getCabId() {
 		return cabId;
 	}
 
@@ -78,6 +80,11 @@ public class Cab {
 		return "Cab [cabId=" + cabId + ", numberPlate=" + numberPlate + ", carType=" + carType + ", ratePerKms="
 				+ ratePerKms + "]";
 	}
+
+    public void setFuelType(String fuelType) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'setFuelType'");
+    }
 	
 	
 }

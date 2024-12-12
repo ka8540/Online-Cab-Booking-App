@@ -1,3 +1,5 @@
+package com.masai.services.cabdriver;
+
 //com.masai.services.cabdriver;
 import java.util.List;
 
@@ -93,7 +95,7 @@ public class CabDriverServiceImpl implements CabDriverService {
 
         // Create new Cab and CabDriver
         String fuelType = cabdto.getCarType();
-        Cab cab = new Cab(fuelType); // Create a Cab with a FuelType
+        Cab cab = new Cab(); // Create a Cab with a FuelType
         cab.setCarType(cabdto.getCarType());
         cab.setNumberPlate(cabdto.getNumberPlate());
         cab.setRatePerKms(cabdto.getRatePerKms());
